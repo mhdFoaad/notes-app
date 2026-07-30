@@ -34,16 +34,18 @@
 
         <hr style="margin: 25px 0; border: none; border-top: 1px solid #eee;">
 
-        {% for note in notes %}
-        <div class="note">
-            <form action="/delete/{{ note[0] if is_postgres else note[0] }}" method="POST" style="display:inline;">
-                <button type="submit" class="delete-btn">حذف</button>
-            </form>
-            <h3>{{ note[1] }}</h3>
-            <p>{{ note[2] }}</p>
-            <div style="clear:both;"></div>
-        </div>
-        {% endfor %}
+     {% for note in notes %}
+<div class="note">
+    <h3>{{ note[1] }}</h3>
+    <p>{{ note[2] }}</p>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+        <a href="/edit/{{ note[0] }}" style="background:#f1c40f; color:#333; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px;">تعديل</a>
+        <form action="/delete/{{ note[0] }}" method="POST" style="margin:0;">
+            <button style="background:#e74c3c; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px;">حذف</button>
+        </form>
+    </div>
+</div>
+{% endfor %}
     </div>
 </body>
 </html>
