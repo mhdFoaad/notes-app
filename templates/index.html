@@ -13,6 +13,17 @@ button{cursor:pointer}
 .note.pinned{border-right-color:#f1c40f; background:#fffdf0}
 </style>
 </head>
+<script>
+function liveSearch(q){
+  q = q.toLowerCase();
+  document.querySelectorAll('.note').forEach(n => {
+    n.style.display = n.innerText.toLowerCase().includes(q) ? '' : 'none';
+  });
+  // تحديث العدد
+  let visible = [...document.querySelectorAll('.note')].filter(n => n.style.display != 'none').length;
+  document.getElementById('count').innerText = visible + ' ملاحظات';
+}
+</script>
 <body>
 <div class="header">
   <div>👋 أهلا يا <b>{{ username }}</b></div>
@@ -22,7 +33,7 @@ button{cursor:pointer}
 <h1>📝 دفتر ملاحظاتي</h1>
 
 <form method="GET" style="display:flex; gap:8px; margin-bottom:16px;">
-  <input name="q" value="{{ q }}" placeholder="🔍 ابحث في ملاحظاتك...">
+<input id="searchInput" name="q" autocomplete="off" value="{{ q }}" placeholder="🔍 ابحث في ملاحظاتك..." oninput="liveSearch(this.value)">
   <button style="padding:10px 16px; background:#222; color:white; border:none; border-radius:8px;">بحث</button>
   {% if q %}<a href="/" style="padding:10px 14px; background:#eee; border-radius:8px; text-decoration:none; color:#333;">مسح</a>{% endif %}
 </form>
@@ -35,7 +46,7 @@ button{cursor:pointer}
 </form>
 </div>
 
-<p><b>{{ notes|length }} ملاحظات</b></p>
+<p><b id="count">{{ notes|length }} ملاحظات</b></p>
 
 {% for note in notes %}
 <div class="card note {{ 'pinned' if note[5]==1 else '' }}">
