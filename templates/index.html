@@ -52,9 +52,10 @@ function doSearch(){
   let cards = document.querySelectorAll('.note-item');
   let visible = 0;
   cards.forEach(card => {
-    let text = card.innerText.toLowerCase();
-    let match = text.includes(q);
-    card.style.display = match? '' : 'none';
+    let title = card.querySelector('h3').innerText.toLowerCase();
+    let content = card.querySelector('p').innerText.toLowerCase();
+    let match = (title + " " + content).includes(q);
+    card.style.display = match ? '' : 'none';
     if(match) visible++;
   });
   document.getElementById('countText').innerText = visible + ' ملاحظات';
