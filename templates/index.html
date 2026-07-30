@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>دفتر ملاحظاتي</title>
+    <style>body{font-family: sans-serif; max-width: 600px; margin: 50px auto;} input, textarea{width: 100%; padding: 10px; margin: 5px 0;} button{padding: 10px 20px; background: #2d6a4f; color: white; border: none; cursor: pointer;}</style>
+</head>
+<body>
+    <h1>دفتر ملاحظاتي 📝</h1>
+
+    <form action="/add" method="POST">
+        <input type="text" name="title" placeholder="عنوان الملاحظة" required>
+        <textarea name="content" placeholder="اكتب هنا..."></textarea>
+        <button type="submit">حفظ</button>
+    </form>
+
+    <hr>
+
+    {% for note in notes %}
+        <div style="background: #f1f1f1; padding: 15px; margin: 10px 0;">
+            <h3>{{ note['title'] }}</h3>
+            <p>{{ note['content'] }}</p>
+         <div style="display:flex; gap:10px;">
+    <a href="/edit/{{ note['id'] }}" style="background:#457b9d; color:white; padding:5px 15px; text-decoration:none; border-radius:4px;">تعديل</a>
+    <form action="/delete/{{ note['id'] }}" method="POST" style="margin:0;">
+        <button style="background:#e63946; border:none; color:white; padding:5px 15px; border-radius:4px; cursor:pointer;">مسح</button>
+    </form>
+</div>
+
+    {% endfor %}
+</body>
+</html>
