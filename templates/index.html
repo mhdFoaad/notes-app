@@ -1,51 +1,53 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>دفتر ملاحظاتي</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f4f5f7; margin: 0; padding: 20px; }
-       .container { max-width: 600px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #2c3e50; }
-        input, textarea { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        button.save { width: 100%; background: #1a5d4c; color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; }
-        button.save:hover { background: #144a3c; }
-       .note { background: #fafafa; border-right: 4px solid #1a5d4c; padding: 15px; border-radius: 8px; margin-top: 15px; position: relative; }
-       .note h3 { margin: 0 0 5px 0; }
-       .note p { margin: 0; color: #555; white-space: pre-wrap; }
-       .delete-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; float: left; font-size: 13px; }
-       .delete-btn:hover { background: #c0392b; }
-    </style>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width">
+<title>دفتر ملاحظاتي</title>
+<style>
+body{font-family:sans-serif;background:#f4f5f7;padding:20px;max-width:700px;margin:auto}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.card{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:16px}
+input,textarea{width:100%;padding:12px;margin:6px 0;border:1px solid #ddd;border-radius:8px;box-sizing:border-box}
+button{cursor:pointer}
+.note{border-right:3px solid transparent; transition:.2s}
+.note.pinned{border-right-color:#f1c40f; background:#fffdf0}
+</style>
 </head>
 <body>
-    <div class="container">
-<div style="display:flex; justify-content:space-between; align-items:center;">
-  <span>أهلا يا {{ username }} 👋</span>
-  <a href="/logout" style="color:#e74c3c; text-decoration:none; font-size:14px;">خروج</a>
+<div class="header">
+  <div>👋 أهلا يا <b>{{ username }}</b></div>
+  <a href="/logout" style="color:#e74c3c;text-decoration:none;">خروج</a>
 </div>
-        <h1>📝 دفتر ملاحظاتي</h1>
 
-        <form action="/add" method="POST">
-            <input type="text" name="title" placeholder="عنوان الملاحظة" required>
-            <textarea name="content" rows="3" placeholder="اكتب هنا..." required></textarea>
-            <button type="submit" class="save">حفظ</button>
-        </form>
+<h1>📝 دفتر ملاحظاتي</h1>
 
-        <hr style="margin: 25px 0; border: none; border-top: 1px solid #eee;">
+<form method="GET" style="display:flex; gap:8px; margin-bottom:16px;">
+  <input name="q" value="{{ q }}" placeholder="🔍 ابحث في ملاحظاتك...">
+  <button style="padding:10px 16px; background:#222; color:white; border:none; border-radius:8px;">بحث</button>
+  {% if q %}<a href="/" style="padding:10px 14px; background:#eee; border-radius:8px; text-decoration:none; color:#333;">مسح</a>{% endif %}
+</form>
 
-     {% for note in notes %}
-<div class="note">
-    <h3>{{ note[1] }}</h3>
-    <p>{{ note[2] }}</p>
-    <div style="display:flex; gap:8px; margin-top:12px;">
-        <a href="/edit/{{ note[0] }}" style="background:#f1c40f; color:#333; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px;">تعديل</a>
-        <form action="/delete/{{ note[0] }}" method="POST" style="margin:0;">
-            <button style="background:#e74c3c; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px;">حذف</button>
-        </form>
-    </div>
+<div class="card">
+<form action="/add" method="POST">
+  <input name="title" placeholder="عنوان الملاحظة" required>
+  <textarea name="content" placeholder="اكتب هنا..." rows="3" required></textarea>
+  <button style="width:100%; background:#1a5d4c; color:white; padding:12px; border:none; border-radius:8px; font-weight:bold; margin-top:6px;">حفظ</button>
+</form>
+</div>
+
+<p><b>{{ notes|length }} ملاحظات</b></p>
+
+{% for note in notes %}
+<div class="card note {{ 'pinned' if note[5]==1 else '' }}">
+  <h3 style="margin:0 0 6px 0;">{{ '📌 ' if note[5]==1 else '' }}{{ note[1] }}</h3>
+  <p style="margin:0 0 8px 0; color:#444;">{{ note[2] }}</p>
+  <small style="color:#999;">{{ note[4] }}</small>
+  <div style="display:flex; gap:6px; margin-top:12px; flex-wrap:wrap;">
+    <form action="/pin/{{ note[0] }}" method="POST" style="margin:0;"><button style="background:#eee; border:none; padding:6px 12px; border-radius:6px;">{{ 'إلغاء تثبيت' if note[5]==1 else 'تثبيت' }}</button></form>
+    <a href="/edit/{{ note[0] }}" style="background:#f1c40f; color:#333; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px;">تعديل</a>
+    <form action="/delete/{{ note[0] }}" method="POST" style="margin:0;"><button style="background:#e74c3c; color:white; border:none; padding:6px 12px; border-radius:6px;">حذف</button></form>
+  </div>
 </div>
 {% endfor %}
-    </div>
-</body>
-</html>
+
+</body></html>
