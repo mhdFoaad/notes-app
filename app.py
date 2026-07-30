@@ -1,15 +1,21 @@
-import sqlite3
-from flask import Flask, g, render_template, request, redirect
 import os
+import sqlite3
+from flask import Flask, g, render_template, request, redirect, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-DATABASE = 'notes.db'
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-please-change')
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row
+        if DATABASE_URL:
+            import psycopg2
+            db = g._database = psycopg2.connect(DATABASE_URL)
+        else:
+            db = g._database = sqlite3.connect('notes.db')
+            db.row_factory = sqlite3.Row
     return db
 
 @app.teardown_appcontext
@@ -20,36 +26,32 @@ def close_connection(exception):
 
 def init_db():
     db = get_db()
-    db.execute('CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, title TEXT, content TEXT)')
+    cur = db.cursor()
+    if DATABASE_URL:
+        cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL)')
+        cur.execute('CREATE TABLE IF NOT EXISTS notes (id SERIAL PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER REFERENCES users(id))')
+        cur.execute('ALTER TABLE notes ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)')
+    else:
+        cur.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL)')
+        cur.execute('CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER)')
+        try:
+            cur.execute('ALTER TABLE notes ADD COLUMN user_id INTEGER')
+        except:
+            pass
     db.commit()
 
-# ده السطر السحري اللي ناقص عندك
 @app.before_request
 def before_request():
     init_db()
 
-@app.route('/', methods=['GET'])
-def index():
-    db = get_db()
-    notes = db.execute('SELECT * FROM notes ORDER BY id DESC').fetchall()
-    return render_template('index.html', notes=notes)
-
-@app.route('/add', methods=['POST'])
-def add_note():
-    title = request.form['title']
-    content = request.form['content']
-    db = get_db()
-    db.execute('INSERT INTO notes (title, content) VALUES (?, ?)', (title, content))
-    db.commit()
-    return redirect('/')
-
-@app.route('/delete/<int:id>', methods=['POST'])
-def delete_note(id):
-    db = get_db()
-    db.execute('DELETE FROM notes WHERE id = ?', (id,))
-    db.commit()
-    return redirect('/')
-
-# عشان يشتغل عندك لوكال
-if __name__ == '__main__':
-    app.run(debug=True)
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username'].strip()
+        password = request.form['password']
+        if not username or not password:
+            return "الاسم والباسورد مطلوبين"
+        db = get_db()
+        cur = db.cursor()
+        try:
+            hashed = generate_password_hash

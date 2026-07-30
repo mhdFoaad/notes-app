@@ -20,6 +20,10 @@
 </head>
 <body>
     <div class="container">
+<div style="display:flex; justify-content:space-between; align-items:center;">
+  <span>أهلا يا {{ username }} 👋</span>
+  <a href="/logout" style="color:#e74c3c; text-decoration:none; font-size:14px;">خروج</a>
+</div>
         <h1>📝 دفتر ملاحظاتي</h1>
 
         <form action="/add" method="POST">
@@ -32,7 +36,7 @@
 
         {% for note in notes %}
         <div class="note">
-            <form action="/delete/{{ note[0] }}" method="POST" style="display:inline;">
+            <form action="/delete/{{ note[0] if is_postgres else note[0] }}" method="POST" style="display:inline;">
                 <button type="submit" class="delete-btn">حذف</button>
             </form>
             <h3>{{ note[1] }}</h3>
