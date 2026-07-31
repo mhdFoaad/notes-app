@@ -29,10 +29,16 @@ def init_db():
     cur = db.cursor()
     if DATABASE_URL:
         cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT)')
-        cur.execute('CREATE TABLE IF NOT EXISTS notes (id SERIAL PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER REFERENCES users(id))')
+        cur.execute('CREATE TABLE IF NOT EXISTS notes (id SERIAL PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER REFERENCES users(id), pinned INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
+        cur.execute('ALTER TABLE notes ADD COLUMN IF NOT EXISTS pinned INTEGER DEFAULT 0')
+        cur.execute('ALTER TABLE notes ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
     else:
         cur.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT)')
-        cur.execute('CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER)')
+        cur.execute('CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER, pinned INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
+        try: cur.execute('ALTER TABLE notes ADD COLUMN pinned INTEGER DEFAULT 0')
+        except: pass
+        try: cur.execute('ALTER TABLE notes ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        except: pass
     db.commit()
 
 @app.before_request
@@ -88,13 +94,13 @@ def logout():
 def index():
     if 'user_id' not in session:
         return redirect('/login')
-    q = request.args.get('q','')
-    conn = get_db()
-    if q:
-        notes = conn.execute('SELECT * FROM notes WHERE user_id=? AND (title LIKE? OR content LIKE?) ORDER BY pinned DESC, created_at DESC', (session['user_id'], f'%{q}%', f'%{q}%')).fetchall()
+    db = get_db()
+    cur = db.cursor()
+    if DATABASE_URL:
+        cur.execute('SELECT * FROM notes WHERE user_id=%s ORDER BY pinned DESC, created_at DESC', (session['user_id'],))
     else:
-        notes = conn.execute('SELECT * FROM notes WHERE user_id=? ORDER BY pinned DESC, created_at DESC', (session['user_id'],)).fetchall()
-    conn.close()
+        cur.execute('SELECT * FROM notes WHERE user_id=? ORDER BY pinned DESC, created_at DESC', (session['user_id'],))
+    notes = cur.fetchall()
     return render_template('index.html', notes=notes, username=session['username'])
 
 @app.route('/add', methods=['POST'])
@@ -117,16 +123,12 @@ def edit_note_route(id):
     db = get_db()
     cur = db.cursor()
     if request.method == 'POST':
-        title = request.form['title']
-        content = request.form['content']
         if DATABASE_URL:
-            cur.execute('UPDATE notes SET title=%s, content=%s WHERE id=%s AND user_id=%s', (title, content, id, session['user_id']))
+            cur.execute('UPDATE notes SET title=%s, content=%s WHERE id=%s AND user_id=%s', (request.form['title'], request.form['content'], id, session['user_id']))
         else:
-            cur.execute('UPDATE notes SET title=?, content=? WHERE id=? AND user_id=?', (title, content, id, session['user_id']))
+            cur.execute('UPDATE notes SET title=?, content=? WHERE id=? AND user_id=?', (request.form['title'], request.form['content'], id, session['user_id']))
         db.commit()
         return redirect('/')
-
-    # GET - اعرض الملاحظة
     if DATABASE_URL:
         cur.execute('SELECT * FROM notes WHERE id=%s AND user_id=%s', (id, session['user_id']))
     else:
@@ -151,13 +153,25 @@ def delete_note(id):
 
 @app.route('/pin/<int:note_id>', methods=['POST'])
 def pin_note(note_id):
-    conn = get_db()
-    note = conn.execute('SELECT pinned FROM notes WHERE id=?', (note_id,)).fetchone()
-    new_val = 0 if note[0]==1 else 1
-    conn.execute('UPDATE notes SET pinned=? WHERE id=?', (new_val, note_id))
-    conn.commit()
-    conn.close()
-    return redirect('/') 
+    if 'user_id' not in session:
+        return redirect('/login')
+    db = get_db()
+    cur = db.cursor()
+    if DATABASE_URL:
+        cur.execute('SELECT pinned FROM notes WHERE id=%s AND user_id=%s', (note_id, session['user_id']))
+    else:
+        cur.execute('SELECT pinned FROM notes WHERE id=? AND user_id=?', (note_id, session['user_id']))
+    row = cur.fetchone()
+    if not row:
+        return redirect('/')
+    current = row[0] or 0
+    new_val = 0 if current == 1 else 1
+    if DATABASE_URL:
+        cur.execute('UPDATE notes SET pinned=%s WHERE id=%s', (new_val, note_id))
+    else:
+        cur.execute('UPDATE notes SET pinned=? WHERE id=?', (new_val, note_id))
+    db.commit()
+    return redirect('/')
 
 if __name__ == '__main__':
     app.run(debug=True)
