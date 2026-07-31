@@ -88,14 +88,14 @@ def logout():
 def index():
     if 'user_id' not in session:
         return redirect('/login')
-    db = get_db()
-    cur = db.cursor()
-    if DATABASE_URL:
-        cur.execute('SELECT * FROM notes WHERE user_id = %s ORDER BY id DESC', (session['user_id'],))
+    q = request.args.get('q','')
+    conn = get_db()
+    if q:
+        notes = conn.execute('SELECT * FROM notes WHERE user_id=? AND (title LIKE? OR content LIKE?) ORDER BY pinned DESC, created_at DESC', (session['user_id'], f'%{q}%', f'%{q}%')).fetchall()
     else:
-        cur.execute('SELECT * FROM notes WHERE user_id =? ORDER BY id DESC', (session['user_id'],))
-    notes = cur.fetchall()
-    return render_template('index.html', notes=notes, username=session.get('username'))
+        notes = conn.execute('SELECT * FROM notes WHERE user_id=? ORDER BY pinned DESC, created_at DESC', (session['user_id'],)).fetchall()
+    conn.close()
+    return render_template('index.html', notes=notes, username=session['username'])
 
 @app.route('/add', methods=['POST'])
 def add_note():
@@ -110,6 +110,32 @@ def add_note():
     db.commit()
     return redirect('/')
 
+@app.route('/edit/<int:id>', methods=['GET', 'POST'])
+def edit_note_route(id):
+    if 'user_id' not in session:
+        return redirect('/login')
+    db = get_db()
+    cur = db.cursor()
+    if request.method == 'POST':
+        title = request.form['title']
+        content = request.form['content']
+        if DATABASE_URL:
+            cur.execute('UPDATE notes SET title=%s, content=%s WHERE id=%s AND user_id=%s', (title, content, id, session['user_id']))
+        else:
+            cur.execute('UPDATE notes SET title=?, content=? WHERE id=? AND user_id=?', (title, content, id, session['user_id']))
+        db.commit()
+        return redirect('/')
+
+    # GET - اعرض الملاحظة
+    if DATABASE_URL:
+        cur.execute('SELECT * FROM notes WHERE id=%s AND user_id=%s', (id, session['user_id']))
+    else:
+        cur.execute('SELECT * FROM notes WHERE id=? AND user_id=?', (id, session['user_id']))
+    note = cur.fetchone()
+    if not note:
+        return redirect('/')
+    return render_template('edit.html', note=note)
+
 @app.route('/delete/<int:id>', methods=['POST'])
 def delete_note(id):
     if 'user_id' not in session:
@@ -122,6 +148,16 @@ def delete_note(id):
         cur.execute('DELETE FROM notes WHERE id =? AND user_id =?', (id, session['user_id']))
     db.commit()
     return redirect('/')
+
+@app.route('/pin/<int:note_id>', methods=['POST'])
+def pin_note(note_id):
+    conn = get_db()
+    note = conn.execute('SELECT pinned FROM notes WHERE id=?', (note_id,)).fetchone()
+    new_val = 0 if note[0]==1 else 1
+    conn.execute('UPDATE notes SET pinned=? WHERE id=?', (new_val, note_id))
+    conn.commit()
+    conn.close()
+    return redirect('/') 
 
 if __name__ == '__main__':
     app.run(debug=True)
