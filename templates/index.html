@@ -4,6 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>دفتر ملاحظاتي</title>
 <link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#0f766e">
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <style>
 :root{--bg:#f8fafc;--card:#ffffff;--text:#0f172a;--muted:#64748b;--border:#e2e8f0;--input:#f1f5f9;--primary:#0f766e;--primary2:#14b8a6;--shadow:0 10px 25px -5px rgba(0,0,0,.05);}
 body.dark{--bg:#020617;--card:#0f172a;--text:#f1f5f9;--muted:#94a3b8;--border:#1e293b;--input:#1e293b;--shadow:0 10px 25px -5px rgba(0,0,0,.4);}
@@ -14,10 +15,11 @@ body{background:var(--bg); color:var(--text); font-family:'Cairo',system-ui; mar
 .logo{font-weight:800; font-size:20px;} .actions{display:flex; gap:8px; align-items:center;}
 .btn-icon{background:var(--card); border:1px solid var(--border); width:40px; height:40px; border-radius:12px; cursor:pointer; font-size:18px;}
 .card{background:var(--card); border:1px solid var(--border); border-radius:18px; padding:16px; margin-bottom:14px; box-shadow:var(--shadow);}
-input, textarea, select{width:100%; background:var(--input); border:1px solid var(--border); border-radius:12px; padding:11px; color:var(--text); font-family:inherit;}
+input, textarea{width:100%; background:var(--input); border:1px solid var(--border); border-radius:12px; padding:11px; color:var(--text); font-family:inherit;}
 textarea{min-height:75px; resize:vertical; margin-top:8px;}
 .btn-main{width:100%; margin-top:10px; background:linear-gradient(135deg,var(--primary),var(--primary2)); color:white; border:none; padding:12px; border-radius:12px; font-weight:700; cursor:pointer;}
-.note{position:relative; overflow:hidden;}
+.note{position:relative; overflow:hidden; cursor:grab; touch-action:none;}
+.note:active{cursor:grabbing;}
 .note-color-bar{position:absolute; top:0; right:0; width:100%; height:5px;}
 .colors{display:flex; gap:8px; margin:10px 0;}
 .color-dot{width:28px; height:28px; border-radius:50%; cursor:pointer; border:2px solid transparent;}
@@ -29,6 +31,8 @@ textarea{min-height:75px; resize:vertical; margin-top:8px;}
 .filter-bar{display:flex; gap:6px; overflow-x:auto; padding:6px 0; margin-bottom:10px;}
 .filter-btn{white-space:nowrap; padding:6px 12px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--muted); cursor:pointer; font-size:12px;}
 .filter-btn.active{background:var(--primary); color:white; border-color:var(--primary);}
+.drag-handle{position:absolute; left:8px; top:8px; opacity:.3; font-size:14px;}
+.sortable-ghost{opacity:.4; transform:scale(.95);} .sortable-chosen{box-shadow:0 15px 35px rgba(0,0,0,.2);}
 </style>
 </head>
 <body>
@@ -70,18 +74,17 @@ textarea{min-height:75px; resize:vertical; margin-top:8px;}
     </form>
   </div>
 
-  <div style="text-align:left; color:var(--muted); font-size:12px; margin:8px 4px;">{{ notes|length }} ملاحظات</div>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin:8px 4px;">
+    <div style="color:var(--muted); font-size:12px;">{{ notes|length }} ملاحظات • اسحب ورتب 👇</div>
+  </div>
 
+  <div id="notesList">
   {% for note in notes %}
-  {% set n_id = note[0] %}
-  {% set n_title = note[1] %}
-  {% set n_content = note[2] %}
-  {% set n_pinned = note[4] %}
-  {% set n_color = note[5] if note|length>5 and note[5] else '#ffffff' %}
-  {% set n_cat = note[6] if note|length>6 and note[6] else '' %}
-  <div class="card note" data-title="{{ (n_title + ' ' + n_content + ' ' + n_cat)|lower }}" data-cat="{{ n_cat }}" data-pinned="{{ n_pinned }}" style="background: {{ n_color if n_color!='#ffffff' else 'var(--card)' }}; {% if n_color!='#ffffff' %}border-color: {{ n_color }};{% endif %}">
+  {% set n_id = note[0] %}{% set n_title = note[1] %}{% set n_content = note[2] %}{% set n_pinned = note[4] %}{% set n_color = note[5] if note|length>5 and note[5] else '#ffffff' %}{% set n_cat = note[6] if note|length>6 and note[6] else '' %}
+  <div class="card note" data-id="{{ n_id }}" data-title="{{ (n_title + ' ' + n_content + ' ' + n_cat)|lower }}" data-cat="{{ n_cat }}" data-pinned="{{ n_pinned }}" style="background: {{ n_color if n_color!='#ffffff' else 'var(--card)' }};">
     <div class="note-color-bar" style="background: {{ n_color if n_color!='#ffffff' else 'transparent' }};"></div>
-    <div style="font-weight:700; font-size:15px;">{% if n_pinned==1 %}📌{% endif %} {{ n_title }}</div>
+    <div class="drag-handle">⠿</div>
+    <div style="font-weight:700; font-size:15px; padding-left:20px;">{% if n_pinned==1 %}📌{% endif %} {{ n_title }}</div>
     <div style="color:var(--muted); font-size:13px; margin-top:6px; line-height:1.6;">{{ n_content }}</div>
     {% if n_cat %}<div class="tag">#{{ n_cat }}</div>{% endif %}
     <div class="note-footer">
@@ -91,6 +94,7 @@ textarea{min-height:75px; resize:vertical; margin-top:8px;}
     </div>
   </div>
   {% endfor %}
+  </div>
 </div>
 
 <script>
@@ -98,7 +102,6 @@ const body=document.body, btn=document.getElementById('darkToggle');
 const saved=localStorage.getItem('theme'); if(saved=='dark'){body.classList.add('dark'); btn.textContent='☀️';}
 btn.onclick=()=>{body.classList.toggle('dark'); const d=body.classList.contains('dark'); btn.textContent=d?'☀️':'🌙'; localStorage.setItem('theme',d?'dark':'light');};
 
-// colors
 document.querySelectorAll('.color-dot').forEach(dot=>{
   dot.onclick=()=>{
     document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active'));
@@ -107,22 +110,14 @@ document.querySelectorAll('.color-dot').forEach(dot=>{
   }
 });
 
-// search
 document.getElementById('searchInput').addEventListener('input', e=>{
   const q=e.target.value.toLowerCase();
-  document.querySelectorAll('.note').forEach(c=>{
-    c.style.display=c.dataset.title.includes(q)?'block':'none';
-  });
+  document.querySelectorAll('.note').forEach(c=>{ c.style.display=c.dataset.title.includes(q)?'block':'none'; });
 });
 
-// category filter dynamic
-const cats = new Set();
-document.querySelectorAll('.note').forEach(n=>{ if(n.dataset.cat) cats.add(n.dataset.cat); });
+const cats=new Set(); document.querySelectorAll('.note').forEach(n=>{ if(n.dataset.cat) cats.add(n.dataset.cat); });
 const bar=document.getElementById('filterBar');
-cats.forEach(cat=>{
-  const b=document.createElement('button'); b.className='filter-btn'; b.textContent='#'+cat; b.dataset.filter=cat;
-  bar.appendChild(b);
-});
+cats.forEach(cat=>{ const b=document.createElement('button'); b.className='filter-btn'; b.textContent='#'+cat; b.dataset.filter=cat; bar.appendChild(b); });
 bar.addEventListener('click', e=>{
   if(!e.target.classList.contains('filter-btn')) return;
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
@@ -133,6 +128,19 @@ bar.addEventListener('click', e=>{
     else if(f=='📌 مثبت') n.style.display = n.dataset.pinned=='1'?'block':'none';
     else n.style.display = n.dataset.cat==f?'block':'none';
   });
+});
+
+// DRAG & DROP MAGIC
+const list=document.getElementById('notesList');
+new Sortable(list, {
+  animation:150,
+  ghostClass:'sortable-ghost',
+  chosenClass:'sortable-chosen',
+  handle:'.note',
+  onEnd: ()=>{
+    const order=[...list.querySelectorAll('.note')].map(el=>el.dataset.id);
+    fetch('/reorder', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({order})});
+  }
 });
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js');}
