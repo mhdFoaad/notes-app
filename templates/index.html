@@ -1,92 +1,96 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>دفتر ملاحظاتي ✨</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دفتر ملاحظاتي</title>
 <style>
-:root{--bg:#f8f9fb;--card:#ffffff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;--primary:#0f766e;--primary-hover:#0d5e59;--yellow:#facc15;--red:#ef4444}
-@media(prefers-color-scheme:dark){
-:root{--bg:#0f1214;--card:#1a1f24;--text:#e5e7eb;--muted:#9ca3af;--border:#2a333a}
+:root{
+  --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#64748b;
+  --border:#e2e8f0; --input:#f1f5f9; --primary:#0f766e; --primary2:#14b8a6;
+  --shadow:0 10px 25px -5px rgba(0,0,0,.05);
 }
-*{font-family:'Cairo',sans-serif;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);margin:0;padding:24px;max-width:800px;margin-inline:auto;transition:.3s}
-.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
-.logo{font-size:28px;font-weight:700;letter-spacing:-.5px}
-.search-wrap{position:relative;margin-bottom:20px}
-.search-wrap input{width:100%;padding:14px 44px 14px 16px;border:2px solid var(--border);border-radius:14px;background:var(--card);color:var(--text);font-size:15px;outline:none;transition:.2s}
-.search-wrap input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(15,118,110,.15)}
-.search-wrap::before{content:'🔍';position:absolute;right:16px;top:50%;transform:translateY(-50%)}
-.add-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;box-shadow:0 4px 20px rgba(0,0,0,.04)}
-.add-card input,.add-card textarea{border:1px solid var(--border);background:var(--bg);border-radius:10px}
-.add-card button{width:100%;background:linear-gradient(135deg,var(--primary),#14b8a6);color:white;border:none;padding:13px;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer;transition:.2s}
-.add-card button:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(15,118,110,.3)}
-.count{color:var(--muted);font-weight:600;margin:16px 4px}
-.note-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:14px;transition:.2s;animation:fadeIn.3s}
-.note-card:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,.08);border-color:var(--primary)}
-.note-card h3{margin:0 0 6px 0;font-size:16px}
-.note-card p{margin:0;color:var(--muted);line-height:1.6}
-.note-card small{color:var(--muted);opacity:.7;font-size:12px}
-.actions{display:flex;gap:8px;margin-top:14px}
-.actions button,.actions a{border:none;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;transition:.15s}
-.btn-pin{background:#f3f4f6;color:#374151}.btn-pin:hover{background:#e5e7eb}
-.btn-edit{background:var(--yellow);color:#000}.btn-edit:hover{filter:brightness(.95)}
-.btn-del{background:var(--red);color:white}.btn-del:hover{filter:brightness(.9)}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+body.dark{
+  --bg:#020617; --card:#0f172a; --text:#f1f5f9; --muted:#94a3b8;
+  --border:#1e293b; --input:#1e293b; --shadow:0 10px 25px -5px rgba(0,0,0,.4);
+}
+*{transition: background.3s, color.3s, border.3s;}
+body{background:var(--bg); color:var(--text); font-family:'Cairo',system-ui; margin:0; padding:20px;}
+.container{max-width:720px; margin:auto;}
+.header{display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;}
+.logo{font-weight:800; font-size:22px; display:flex; gap:8px; align-items:center;}
+.actions{display:flex; gap:10px; align-items:center;}
+.btn-icon{background:var(--card); border:1px solid var(--border); width:42px; height:42px; border-radius:12px; cursor:pointer; font-size:18px; box-shadow:var(--shadow);}
+.card{background:var(--card); border:1px solid var(--border); border-radius:20px; padding:18px; margin-bottom:16px; box-shadow:var(--shadow);}
+input, textarea{width:100%; background:var(--input); border:1px solid var(--border); border-radius:12px; padding:12px; color:var(--text); box-sizing:border-box; font-family:inherit;}
+textarea{min-height:80px; resize:vertical; margin-top:10px;}
+.btn-main{width:100%; margin-top:12px; background:linear-gradient(135deg,var(--primary),var(--primary2)); color:white; border:none; padding:13px; border-radius:12px; font-weight:700; cursor:pointer; font-size:15px;}
+.note-title{font-weight:700; font-size:16px; margin-bottom:6px;}
+.note-content{color:var(--muted); font-size:14px; line-height:1.6;}
+.note-footer{display:flex; gap:8px; margin-top:12px; justify-content:flex-end;}
+.btn-mini{border:none; padding:7px 14px; border-radius:20px; font-size:13px; cursor:pointer;}
+.btn-pin{background:var(--input); color:var(--text);}.btn-edit{background:#f59e0b; color:white;}.btn-del{background:#ef4444; color:white;}
+.search{position:relative;}.search span{position:absolute; left:14px; top:50%; transform:translateY(-50%);}
 </style>
 </head>
 <body>
-<div class="header">
-  <div class="logo">📝 دفتر ملاحظاتي</div>
-  <div style="display:flex;gap:12px;align-items:center">
-    <span>أهلا يا <b>{{ username }}</b> ✨</span>
-    <a href="/logout" style="color:var(--red);text-decoration:none;font-weight:600">خروج</a>
+<div class="container">
+  <div class="header">
+    <div class="logo">📝 دفتر ملاحظاتي</div>
+    <div class="actions">
+      <button class="btn-icon" id="darkToggle">🌙</button>
+      <span style="font-size:13px;">أهلا يا {{ username }} ✨</span>
+      <a href="/logout" style="color:var(--muted); text-decoration:none; font-size:13px;">خروج</a>
+    </div>
   </div>
-</div>
 
-<div class="search-wrap">
-  <input id="searchBox" autocomplete="off" placeholder="ابحث في أفكارك..." oninput="doSearch()">
-</div>
-
-<div class="add-card">
-<form action="/add" method="POST">
-  <input name="title" placeholder="عنوان عبقري..." required style="width:100%;padding:12px;margin-bottom:10px">
-  <textarea name="content" placeholder="اكتب فكرتك هنا..." rows="3" required style="width:100%;padding:12px;margin-bottom:12px"></textarea>
-  <button>✨ حفظ الملاحظة</button>
-</form>
-</div>
-
-<div class="count" id="countText">{{ notes|length }} ملاحظات</div>
-
-<div id="notesList">
-{% for note in notes %}
-<div class="note-card note-item">
-  <h3>{{ '📌 ' if note[5]==1 else '' }}{{ note[1] }}</h3>
-  <p>{{ note[2] }}</p>
-  <small>{{ note[4] }}</small>
-  <div class="actions">
-    <form action="/pin/{{ note[0] }}" method="POST" style="margin:0"><button class="btn-pin">{{ 'إلغاء تثبيت' if note[5]==1 else 'تثبيت' }}</button></form>
-    <a class="btn-edit" href="/edit/{{ note[0] }}">تعديل</a>
-    <form action="/delete/{{ note[0] }}" method="POST" style="margin:0"><button class="btn-del">حذف</button></form>
+  <div class="card search">
+    <input type="text" id="searchInput" placeholder="ابحث في أفكارك..." style="padding-left:40px;">
+    <span>🔍</span>
   </div>
-</div>
-{% endfor %}
+
+  <div class="card">
+    <form action="/add" method="POST">
+      <input type="text" name="title" placeholder="عنوان عبقري..." required>
+      <textarea name="content" placeholder="اكتب فكرتك هنا..." required></textarea>
+      <button class="btn-main">✨ حفظ الملاحظة</button>
+    </form>
+  </div>
+
+  <div style="text-align:left; color:var(--muted); font-size:13px; margin:10px 5px;">{{ notes|length }} ملاحظات</div>
+
+  {% for note in notes %}
+  <div class="card note-card" data-title="{{ note[1]|lower }} {{ note[2]|lower }}">
+    <div class="note-title">{% if note[4]==1 %}📌{% endif %} {{ note[1] }}</div>
+    <div class="note-content">{{ note[2] }}</div>
+    <div class="note-footer">
+      <form action="/pin/{{ note[0] }}" method="POST"><button class="btn-mini btn-pin">{% if note[4]==1 %}إلغاء تثبيت{% else %}تثبيت{% endif %}</button></form>
+      <a href="/edit/{{ note[0] }}"><button class="btn-mini btn-edit">تعديل</button></a>
+      <form action="/delete/{{ note[0] }}" method="POST"><button class="btn-mini btn-del">حذف</button></form>
+    </div>
+  </div>
+  {% endfor %}
 </div>
 
 <script>
-function doSearch(){
-  let q=document.getElementById('searchBox').value.toLowerCase().trim();
-  let cards=document.querySelectorAll('.note-item');
-  let c=0;
-  cards.forEach(card=>{
-    let t=card.querySelector('h3').innerText.toLowerCase();
-    let p=card.querySelector('p').innerText.toLowerCase();
-    let ok=(t+" "+p).includes(q);
-    card.style.display=ok?'':'none';
-    if(ok) c++;
-  });
-  document.getElementById('countText').innerText=c+' ملاحظات';
+// دارك مود
+const body = document.body;
+const btn = document.getElementById('darkToggle');
+const saved = localStorage.getItem('theme');
+if(saved=='dark'){ body.classList.add('dark'); btn.textContent='☀️'; }
+btn.onclick = ()=>{
+  body.classList.toggle('dark');
+  const isDark = body.classList.contains('dark');
+  btn.textContent = isDark? '☀️' : '🌙';
+  localStorage.setItem('theme', isDark? 'dark' : 'light');
 }
+// بحث لحظي
+document.getElementById('searchInput').addEventListener('input', e=>{
+  const q = e.target.value.toLowerCase();
+  document.querySelectorAll('.note-card').forEach(c=>{
+    c.style.display = c.dataset.title.includes(q)? 'block' : 'none';
+  })
+})
 </script>
 </body>
 </html>
