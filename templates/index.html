@@ -9,7 +9,15 @@
   --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#64748b;
   --border:#e2e8f0; --input:#f1f5f9; --primary:#0f766e; --primary2:#14b8a6;
   --shadow:0 10px 25px -5px rgba(0,0,0,.05);
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f766e">
 }
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+
 body.dark{
   --bg:#020617; --card:#0f172a; --text:#f1f5f9; --muted:#94a3b8;
   --border:#1e293b; --input:#1e293b; --shadow:0 10px 25px -5px rgba(0,0,0,.4);
