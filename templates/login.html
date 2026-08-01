@@ -1,1 +1,43 @@
-<!DOCTYPE html><html lang="ار" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>دخول</title><style>body{font-family:sans-serif;background:#f4f5f7;display:flex;justify-content:center;padding:40px}.box{background:white;padding:30px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.1);width:100%;max-width:400px}input{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:8px;box-sizing:border-box}button{width:100%;background:#1a5d4c;color:white;padding:12px;border:none;border-radius:8px;font-weight:bold;cursor:pointer}a{color:#1a5d4c}</style></head><body><div class="box"><h2>تسجيل الدخول</h2><form method="POST"><input name="username" placeholder="اسم المستخدم" required><input name="password" type="password" placeholder="الباسورد" required><button type="submit">دخول</button></form><p>معندكش حساب؟ <a href="/register">اعمل واحد</a></p></div></body></html>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تسجيل الدخول</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f766e">
+<style>
+:root{--bg:#f8fafc;--card:#ffffff;--text:#0f172a;--muted:#64748b;--border:#e2e8f0;--input:#f1f5f9;--primary:#0f766e;--primary2:#14b8a6;--shadow:0 10px 25px -5px rgba(0,0,0,.05);}
+body.dark{--bg:#020617;--card:#0f172a;--text:#f1f5f9;--muted:#94a3b8;--border:#1e293b;--input:#1e293b;--shadow:0 10px 25px -5px rgba(0,0,0,.4);}
+*{transition:background .3s,color .3s,border .3s; box-sizing:border-box;}
+body{background:var(--bg); color:var(--text); font-family:'Cairo',system-ui; margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+.card{background:var(--card); border:1px solid var(--border); border-radius:22px; padding:28px; width:100%; max-width:380px; box-shadow:var(--shadow);}
+h2{margin:0 0 20px 0; text-align:right; font-weight:800; font-size:20px;}
+input{width:100%; background:var(--input); border:1px solid var(--border); border-radius:12px; padding:12px 14px; color:var(--text); font-family:inherit; margin-bottom:12px; outline:none;}
+input:focus{border-color:var(--primary);}
+.btn-main{width:100%; background:linear-gradient(135deg,var(--primary),var(--primary2)); color:white; border:none; padding:12px; border-radius:12px; font-weight:700; cursor:pointer; font-size:15px; margin-top:6px;}
+.link{margin-top:14px; text-align:center; font-size:13px; color:var(--muted);}
+.link a{color:var(--primary2); text-decoration:none; font-weight:700;}
+.top-actions{position:fixed; top:18px; left:18px;}
+.btn-icon{background:var(--card); border:1px solid var(--border); width:42px; height:42px; border-radius:12px; cursor:pointer; font-size:18px; box-shadow:var(--shadow);}
+</style>
+</head>
+<body>
+<div class="top-actions"><button class="btn-icon" id="darkToggle">🌙</button></div>
+<div class="card">
+  <h2>تسجيل الدخول</h2>
+  <form action="/login" method="POST">
+    <input type="text" name="username" placeholder="اسم المستخدم" required>
+    <input type="password" name="password" placeholder="الباسوورد" required>
+    <button class="btn-main">دخول</button>
+  </form>
+  <div class="link">معندكش حساب؟ <a href="/register">اعمل واحد</a></div>
+</div>
+<script>
+const body=document.body; const btn=document.getElementById('darkToggle');
+const saved=localStorage.getItem('theme'); if(saved=='dark'){body.classList.add('dark'); btn.textContent='☀️';}
+btn.onclick=()=>{body.classList.toggle('dark'); const d=body.classList.contains('dark'); btn.textContent=d?'☀️':'🌙'; localStorage.setItem('theme',d?'dark':'light');};
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js');}
+</script>
+</body>
+</html>
