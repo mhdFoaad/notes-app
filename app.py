@@ -1,26 +1,28 @@
 
 import os
+import sys
 import sqlite3
 from flask import Flask, render_template, request, redirect, session, send_from_directory, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
+print(">>> Starting app.py load...", file=sys.stderr)
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'senior-fixed-key-2026')
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
-IS_POSTGRES = DATABASE_URL and DATABASE_URL.startswith('postgres')
+print(f">>> DATABASE_URL exists: {bool(DATABASE_URL)}, starts postgres: {DATABASE_URL[:15] if DATABASE_URL else 'None'}", file=sys.stderr)
+IS_POSTGRES = DATABASE_URL and 'postgres' in DATABASE_URL.lower()
 
 def get_db():
     if IS_POSTGRES:
         import psycopg2
-        # fix for render postgres url that starts with postgres:// vs postgresql://
         url = DATABASE_URL
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
         conn = psycopg2.connect(url)
         return conn
     else:
-        conn = sqlite3.connect('notes.db')
+        conn = sqlite3.connect('/tmp/notes.db')  # use /tmp on Render (writable)
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -28,6 +30,7 @@ def init_db():
     try:
         conn = get_db()
         cur = conn.cursor()
+        print(">>> DB connection success", file=sys.stderr)
         if IS_POSTGRES:
             cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE, password TEXT)')
             cur.execute("""CREATE TABLE IF NOT EXISTS notes (
@@ -57,16 +60,16 @@ def init_db():
         conn.commit()
         cur.close()
         conn.close()
-        print("DB init success, IS_POSTGRES:", IS_POSTGRES)
+        print(">>> DB init success", file=sys.stderr)
     except Exception as e:
-        print("DB init failed:", e)
-        # لا نوقف التطبيق لو الـ DB فشلت، عشان Render ما يعملش ERR_FAILED
+        print(f">>> DB init FAILED: {e}", file=sys.stderr)
+        import traceback; traceback.print_exc(file=sys.stderr)
 
 init_db()
 
 @app.route('/health')
 def health():
-    return "OK - App is running!", 200
+    return "OK - V7 is running! DB: " + ("POSTGRES" if IS_POSTGRES else "SQLITE"), 200
 
 @app.route('/sw.js')
 def sw():
@@ -91,7 +94,7 @@ def index():
         cur.close()
         conn.close()
     except Exception as e:
-        print("Index DB error:", e)
+        print(f"Index error: {e}", file=sys.stderr)
         notes = []
     return render_template('index.html', notes=notes, username=session.get('username',''))
 
@@ -116,7 +119,7 @@ def add():
             cur.execute('INSERT INTO notes (title, content, user_id, color, category, position) VALUES (?,?,?,?,?,?)', (title, content, session['user_id'], color, category, pos))
         conn.commit()
     except Exception as e:
-        print("Add error:", e)
+        print(f"Add error: {e}", file=sys.stderr)
     cur.close()
     conn.close()
     return redirect('/')
@@ -138,7 +141,7 @@ def reorder():
             else:
                 cur.execute('UPDATE notes SET position=? WHERE id=? AND user_id=?', (pos, note_id, session['user_id']))
         except Exception as e:
-            print("Reorder error:", e)
+            print(f"Reorder error: {e}", file=sys.stderr)
     conn.commit()
     cur.close()
     conn.close()
@@ -223,7 +226,7 @@ def register():
             conn.close()
             return redirect('/login')
         except Exception as e:
-            print("Register error:", e)
+            print(f"Register error: {e}", file=sys.stderr)
             cur.close()
             conn.close()
             return 'الاسم موجود'
@@ -256,4 +259,5 @@ def logout():
     return redirect('/login')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=False)
