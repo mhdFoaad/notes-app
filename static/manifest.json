@@ -1,13 +1,10 @@
 {
-  "name": "دفتر ملاحظاتي - النسخة الفاخرة",
-  "short_name": "ملاحظاتي",
-  "description": "دفتر أفكارك السري بتقنية Senior",
+  "name": "دفتر ملاحظاتي - Senior Fixed",
+  "short_name": "دفتري",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#0f766e",
-  "dir": "rtl",
-  "lang": "ar",
   "icons": [
     {
       "src": "/static/icon-192.png",
