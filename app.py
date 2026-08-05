@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, redirect, session, send_from_
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = 'senior-fixed-key-2026'
+app.secret_key = os.environ.get('SECRET_KEY', 'senior-fixed-key-2026')
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 IS_POSTGRES = DATABASE_URL and DATABASE_URL.startswith('postgres')
@@ -13,7 +13,11 @@ IS_POSTGRES = DATABASE_URL and DATABASE_URL.startswith('postgres')
 def get_db():
     if IS_POSTGRES:
         import psycopg2
-        conn = psycopg2.connect(DATABASE_URL)
+        # fix for render postgres url that starts with postgres:// vs postgresql://
+        url = DATABASE_URL
+        if url.startswith('postgres://'):
+            url = url.replace('postgres://', 'postgresql://', 1)
+        conn = psycopg2.connect(url)
         return conn
     else:
         conn = sqlite3.connect('notes.db')
@@ -21,43 +25,48 @@ def get_db():
         return conn
 
 def init_db():
-    conn = get_db()
-    cur = conn.cursor()
-    if IS_POSTGRES:
-        cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE, password TEXT)')
-        cur.execute("""CREATE TABLE IF NOT EXISTS notes (
-            id SERIAL PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER,
-            pinned INTEGER DEFAULT 0, color TEXT DEFAULT '#ffffff', category TEXT DEFAULT '', position INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-        # هجرة آمنة للأعمدة الناقصة (مهم جدا للحفاظ على الملاحظات القديمة)
-        cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#ffffff'")
-        cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS category TEXT DEFAULT ''")
-        cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS pinned INTEGER DEFAULT 0")
-        cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0")
-        # إعطاء كل الملاحظات القديمة position لو 0
-        cur.execute("UPDATE notes SET position = id WHERE position IS NULL OR position = 0")
-    else:
-        cur.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)')
-        cur.execute("""CREATE TABLE IF NOT EXISTS notes (
-            id INTEGER PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER,
-            pinned INTEGER DEFAULT 0, color TEXT DEFAULT '#ffffff', category TEXT DEFAULT '', position INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-        # SQLite لا يدعم IF NOT EXISTS مع ADD COLUMN لذلك نجرب ونبلع الخطأ
-        for col_def in ["color TEXT DEFAULT '#ffffff'", "category TEXT DEFAULT ''", "pinned INTEGER DEFAULT 0", "position INTEGER DEFAULT 0"]:
-            try:
-                col_name = col_def.split()[0]
-                cur.execute(f"ALTER TABLE notes ADD COLUMN {col_def}")
-            except Exception:
-                pass
-        try:
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        if IS_POSTGRES:
+            cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE, password TEXT)')
+            cur.execute("""CREATE TABLE IF NOT EXISTS notes (
+                id SERIAL PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER,
+                pinned INTEGER DEFAULT 0, color TEXT DEFAULT '#ffffff', category TEXT DEFAULT '', position INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+            cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#ffffff'")
+            cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS category TEXT DEFAULT ''")
+            cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS pinned INTEGER DEFAULT 0")
+            cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0")
             cur.execute("UPDATE notes SET position = id WHERE position IS NULL OR position = 0")
-        except:
-            pass
-    conn.commit()
-    cur.close()
-    conn.close()
+        else:
+            cur.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)')
+            cur.execute("""CREATE TABLE IF NOT EXISTS notes (
+                id INTEGER PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER,
+                pinned INTEGER DEFAULT 0, color TEXT DEFAULT '#ffffff', category TEXT DEFAULT '', position INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+            for col_def in ["color TEXT DEFAULT '#ffffff'", "category TEXT DEFAULT ''", "pinned INTEGER DEFAULT 0", "position INTEGER DEFAULT 0"]:
+                try:
+                    cur.execute(f"ALTER TABLE notes ADD COLUMN {col_def}")
+                except:
+                    pass
+            try:
+                cur.execute("UPDATE notes SET position = id WHERE position IS NULL OR position = 0")
+            except:
+                pass
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("DB init success, IS_POSTGRES:", IS_POSTGRES)
+    except Exception as e:
+        print("DB init failed:", e)
+        # لا نوقف التطبيق لو الـ DB فشلت، عشان Render ما يعملش ERR_FAILED
 
 init_db()
+
+@app.route('/health')
+def health():
+    return "OK - App is running!", 200
 
 @app.route('/sw.js')
 def sw():
@@ -70,17 +79,21 @@ def manifest_route():
 def index():
     if 'user_id' not in session:
         return redirect('/login')
-    conn = get_db()
-    cur = conn.cursor()
-    if IS_POSTGRES:
-        cur.execute('SELECT id, title, content, user_id, pinned, color, category, position FROM notes WHERE user_id=%s ORDER BY pinned DESC, position DESC, id DESC', (session['user_id'],))
-        notes = cur.fetchall()
-    else:
-        cur.execute('SELECT id, title, content, user_id, pinned, color, category, position FROM notes WHERE user_id=? ORDER BY pinned DESC, position DESC, id DESC', (session['user_id'],))
-        notes = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template('index.html', notes=notes, username=session['username'])
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        if IS_POSTGRES:
+            cur.execute('SELECT id, title, content, user_id, pinned, color, category, position FROM notes WHERE user_id=%s ORDER BY pinned DESC, position DESC, id DESC', (session['user_id'],))
+            notes = cur.fetchall()
+        else:
+            cur.execute('SELECT id, title, content, user_id, pinned, color, category, position FROM notes WHERE user_id=? ORDER BY pinned DESC, position DESC, id DESC', (session['user_id'],))
+            notes = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print("Index DB error:", e)
+        notes = []
+    return render_template('index.html', notes=notes, username=session.get('username',''))
 
 @app.route('/add', methods=['POST'])
 def add():
@@ -90,19 +103,20 @@ def add():
     content = request.form.get('content','').strip()
     color = request.form.get('color','').strip() or '#ffffff'
     category = request.form.get('category','').strip()
-    # FIX 1: التأكد من حفظ اللون
-    print(f"DEBUG ADD: color={color} category={category}") # للـ Logs في Render
     conn = get_db()
     cur = conn.cursor()
-    if IS_POSTGRES:
-        cur.execute('SELECT COALESCE(MAX(position),0)+1 FROM notes WHERE user_id=%s', (session['user_id'],))
-        pos = cur.fetchone()[0]
-        cur.execute('INSERT INTO notes (title, content, user_id, color, category, position) VALUES (%s,%s,%s,%s,%s,%s)', (title, content, session['user_id'], color, category, pos))
-    else:
-        cur.execute('SELECT COALESCE(MAX(position),0)+1 FROM notes WHERE user_id=?', (session['user_id'],))
-        pos = cur.fetchone()[0]
-        cur.execute('INSERT INTO notes (title, content, user_id, color, category, position) VALUES (?,?,?,?,?,?)', (title, content, session['user_id'], color, category, pos))
-    conn.commit()
+    try:
+        if IS_POSTGRES:
+            cur.execute('SELECT COALESCE(MAX(position),0)+1 FROM notes WHERE user_id=%s', (session['user_id'],))
+            pos = cur.fetchone()[0]
+            cur.execute('INSERT INTO notes (title, content, user_id, color, category, position) VALUES (%s,%s,%s,%s,%s,%s)', (title, content, session['user_id'], color, category, pos))
+        else:
+            cur.execute('SELECT COALESCE(MAX(position),0)+1 FROM notes WHERE user_id=?', (session['user_id'],))
+            pos = cur.fetchone()[0]
+            cur.execute('INSERT INTO notes (title, content, user_id, color, category, position) VALUES (?,?,?,?,?,?)', (title, content, session['user_id'], color, category, pos))
+        conn.commit()
+    except Exception as e:
+        print("Add error:", e)
     cur.close()
     conn.close()
     return redirect('/')
@@ -118,10 +132,13 @@ def reorder():
     total = len(order)
     for idx, note_id in enumerate(order):
         pos = total - idx
-        if IS_POSTGRES:
-            cur.execute('UPDATE notes SET position=%s WHERE id=%s AND user_id=%s', (pos, note_id, session['user_id']))
-        else:
-            cur.execute('UPDATE notes SET position=? WHERE id=? AND user_id=?', (pos, note_id, session['user_id']))
+        try:
+            if IS_POSTGRES:
+                cur.execute('UPDATE notes SET position=%s WHERE id=%s AND user_id=%s', (pos, note_id, session['user_id']))
+            else:
+                cur.execute('UPDATE notes SET position=? WHERE id=? AND user_id=?', (pos, note_id, session['user_id']))
+        except Exception as e:
+            print("Reorder error:", e)
     conn.commit()
     cur.close()
     conn.close()

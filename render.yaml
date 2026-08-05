@@ -1,0 +1,20 @@
+
+services:
+  - type: web
+    name: notes-app-sbcp
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: SECRET_KEY
+        generateValue: true
+    healthCheckPath: /health
+
+databases:
+  - name: notes-db
+    plan: free
+    databaseName: notes_db
+    user: notes_user
