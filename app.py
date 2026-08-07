@@ -3,7 +3,7 @@ import os, sys, traceback
 from flask import Flask, render_template, request, redirect, session, send_from_directory, jsonify
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'senior-secret-v9-2026')
+app.secret_key = os.environ.get('SECRET_KEY', 'v10-final-secret-2026')
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 IS_POSTGRES = DATABASE_URL and 'postgres' in DATABASE_URL.lower()
@@ -44,25 +44,21 @@ def init_db():
         conn.commit()
         cur.close()
         conn.close()
-        return True, f"DB Init OK - POSTGRES={IS_POSTGRES}"
+        return True, "OK"
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
         return False, str(e)
 
-# شغلها أول مرة
 init_db()
 
 @app.route('/health')
 def health():
-    return f"OK V9 - DB: {'POSTGRES' if IS_POSTGRES else 'SQLITE'}", 200
+    return f"OK V10 - POSTGRES={IS_POSTGRES}", 200
 
 @app.route('/init-db')
 def init_db_route():
     ok, msg = init_db()
-    if ok:
-        return f"✅ تم إنشاء الجداول بنجاح!<br>{msg}<br><br><a href='/register'>سجل يوزر جديد الآن</a>", 200
-    else:
-        return f"❌ فشل: {msg}", 500
+    return f"{'✅' if ok else '❌'} {msg}<br><a href='/register'>Register</a> | <a href='/login'>Login</a> | <a href='/debug'>Debug</a>"
 
 @app.route('/debug')
 def debug():
@@ -70,19 +66,36 @@ def debug():
         conn = get_db()
         cur = conn.cursor()
         if IS_POSTGRES:
-            cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
-            tables = [r[0] for r in cur.fetchall()]
             cur.execute("SELECT COUNT(*) FROM users")
-            users_count = cur.fetchone()[0]
+            u = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM notes")
+            n = cur.fetchone()[0]
+            cur.execute("SELECT id, username FROM users")
+            users = cur.fetchall()
         else:
-            cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tables = [r[0] for r in cur.fetchall()]
-            users_count = 0
+            u = n = 0
+            users = []
         cur.close()
         conn.close()
-        return f"DB: {'POSTGRES' if IS_POSTGRES else 'SQLITE'}<br>Tables: {tables}<br>Users: {users_count}<br><a href='/init-db'>اضغط لتهيئة الجداول</a>"
+        return f"DB: POSTGRES={IS_POSTGRES}<br>Users: {u}<br>Notes: {n}<br>List: {users}<br><br><a href='/init-db'>Init</a> | <a href='/login'>Login</a> | <a href='/clear-notes'>Clear Notes (if crash)</a>"
     except Exception as e:
-        return f"Error: {e}<br><a href='/init-db'>حاول تهيئة الجداول</a>"
+        return f"Debug error: {e}<br><a href='/init-db'>Init DB</a>"
+
+@app.route('/clear-notes')
+def clear_notes():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        if IS_POSTGRES:
+            cur.execute("DELETE FROM notes WHERE user_id IN (SELECT id FROM users WHERE username='mdfoaad')")
+        else:
+            cur.execute("DELETE FROM notes")
+        conn.commit()
+        cur.close()
+        conn.close()
+        return "✅ Notes cleared for mdfoaad<br><a href='/'>Go Home</a>"
+    except Exception as e:
+        return f"Error clearing: {e}"
 
 @app.route('/sw.js')
 def sw():
@@ -93,9 +106,9 @@ def manifest_route():
 
 @app.route('/')
 def index():
-    if 'user_id' not in session:
-        return redirect('/login')
     try:
+        if 'user_id' not in session:
+            return redirect('/login')
         conn = get_db()
         cur = conn.cursor()
         if IS_POSTGRES:
@@ -105,10 +118,10 @@ def index():
         notes = cur.fetchall()
         cur.close()
         conn.close()
+        return render_template('index.html', notes=notes, username=session.get('username',''))
     except Exception as e:
-        print(f"Index error: {e}", file=sys.stderr)
-        notes = []
-    return render_template('index.html', notes=notes, username=session.get('username',''))
+        traceback.print_exc(file=sys.stderr)
+        return f"<h3>⚠️ Error in / : {e}</h3><pre>{traceback.format_exc()}</pre><br><a href='/debug'>Debug</a> | <a href='/clear-notes'>Clear Notes</a> | <a href='/logout'>Logout</a>", 500
 
 @app.route('/add', methods=['POST'])
 def add():
@@ -246,7 +259,7 @@ def register():
             conn.close()
             return redirect('/login')
         except Exception as e:
-            return f'الاسم موجود او خطأ: {e} <br><a href="/init-db">جرب تهيئة الجداول</a> | <a href="/register">رجوع</a>'
+            return f'الاسم موجود: {e} <br><a href="/login">دخول</a> | <a href="/debug">Debug</a>'
     return render_template('register.html')
 
 @app.route('/login', methods=['GET','POST'])
@@ -270,9 +283,9 @@ def login():
                 session['username'] = user[1]
                 return redirect('/')
             else:
-                return 'خطأ في الدخول - اليوزر مش موجود، سجل أولاً <br><a href="/register">تسجيل جديد</a>'
+                return 'خطأ في الدخول - اليوزر مش موجود، سجل أولاً <br><a href="/register">تسجيل جديد</a> | <a href="/debug">Debug</a>'
         except Exception as e:
-            return f'خطأ: {e} <br><a href="/init-db">اضغط هنا لتهيئة الجداول أولاً</a>'
+            return f'خطأ: {e} <br><a href="/init-db">تهيئة</a>'
     return render_template('login.html')
 
 @app.route('/logout')
