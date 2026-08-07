@@ -1,49 +1,30 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ملاحظاتي - Senior</title>
-<style>
-body { font-family: sans-serif; background: #0f172a; color: white; padding: 20px; }
-.card { background: #1e293b; padding: 15px; margin: 10px 0; border-radius: 10px; border: 1px solid #334155; }
-.btn { background: #3b82f6; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
-input, textarea, select { width: 100%; padding: 10px; margin: 5px 0; border-radius: 5px; border: 1px solid #334155; background: #0f172a; color: white; }
-a { color: #60a5fa; text-decoration: none; }
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-</style>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ملاحظاتي</title>
+<style>body{font-family:sans-serif;background:#0f172a;color:#fff;padding:20px} .card{background:#1e293b;padding:12px;margin:8px 0;border-radius:8px} .btn{background:#3b82f6;color:#fff;padding:8px 12px;border:none;border-radius:5px;margin:3px;cursor:pointer} input,textarea{width:100%;padding:10px;margin:5px 0;border-radius:5px;background:#0f172a;color:#fff;border:1px solid #334155}</style>
 </head>
 <body>
-<div class="header">
 <h2>أهلاً {{ username }} 👋</h2>
-<div><a href="/debug">Debug</a> | <a href="/logout">خروج</a></div>
-</div>
+<p><a href="/debug" style="color:#60a5fa;">Debug</a> | <a href="/logout" style="color:#60a5fa;">خروج</a> | <a href="/clear-notes" style="color:#f87171;">مسح الملاحظات</a></p>
 
-<form method="POST" action="/add" style="background:#1e293b; padding:15px; border-radius:10px; margin-bottom:20px;">
-<h3>➕ إضافة ملاحظة جديدة</h3>
-<input name="title" placeholder="العنوان" required>
-<textarea name="content" placeholder="المحتوى" rows="3"></textarea>
-<input name="category" placeholder="التصنيف (اختياري)">
-<label>اللون: <input type="color" name="color" value="#ffffff" style="width:50px;"></label>
-<button class="btn" type="submit">حفظ</button>
+<form method="POST" action="/add" style="background:#1e293b;padding:15px;border-radius:10px;margin-bottom:15px;">
+<input name="title" placeholder="عنوان الملاحظة" required>
+<textarea name="content" placeholder="المحتوى" rows="2"></textarea>
+<button class="btn" type="submit">➕ حفظ</button>
 </form>
 
-<h3>📝 ملاحظاتك ({{ notes|length }})</h3>
-{% if not notes %}
-<p style="text-align:center; opacity:0.5;">لا توجد ملاحظات بعد - أضف أول ملاحظة فوق!</p>
-{% endif %}
+<h3>ملاحظاتك ({{ notes|length }})</h3>
 {% for note in notes %}
-<div class="card" style="border-right: 5px solid {{ note[5] }};">
-<strong>{{ note[1] }}</strong> <small style="opacity:0.5;">#{{ note[6] }}</small>
-<p>{{ note[2] }}</p>
-<div>
-<form method="POST" action="/pin/{{ note[0] }}" style="display:inline;"><button class="btn">{{ '📌 إلغاء التثبيت' if note[4]==1 else '📌 تثبيت' }}</button></form>
-<a href="/edit/{{ note[0] }}"><button class="btn">✏️ تعديل</button></a>
-<form method="POST" action="/delete/{{ note[0] }}" style="display:inline;"><button class="btn" style="background:#ef4444;">🗑️ حذف</button></form>
+<div class="card">
+<b>{{ note[1] }}</b><br>{{ note[2] }}<br>
+<small style="opacity:0.5">{{ note[6] }}</small><br>
+<form method="POST" action="/delete/{{ note[0] }}" style="display:inline;"><button class="btn" style="background:#ef4444;">حذف</button></form>
+<a href="/edit/{{ note[0] }}"><button class="btn">تعديل</button></a>
 </div>
-</div>
+{% else %}
+<p style="opacity:0.5;text-align:center;">لا توجد ملاحظات - أضف أول واحدة!</p>
 {% endfor %}
-
-<p style="text-align:center; margin-top:30px; opacity:0.3;">✅ V11 - POSTGRES Persistent - Users never deleted!</p>
+<hr><p style="font-size:12px;opacity:0.4;">V12 - No Service Worker - POSTGRES Persistent ✅</p>
 </body>
 </html>
