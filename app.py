@@ -1,14 +1,11 @@
 
 import os, sys, traceback
-import sqlite3
 from flask import Flask, render_template, request, redirect, session, send_from_directory, jsonify
 
-print(">>> V8 Ultimate Loading...", file=sys.stderr)
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'senior-secret-2026')
+app.secret_key = os.environ.get('SECRET_KEY', 'senior-secret-v9-2026')
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
-print(f">>> DATABASE_URL set: {bool(DATABASE_URL)}", file=sys.stderr)
 IS_POSTGRES = DATABASE_URL and 'postgres' in DATABASE_URL.lower()
 
 def get_db():
@@ -17,10 +14,9 @@ def get_db():
         url = DATABASE_URL
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
-        conn = psycopg2.connect(url)
-        return conn
+        return psycopg2.connect(url)
     else:
-        os.makedirs('/tmp', exist_ok=True)
+        import sqlite3
         conn = sqlite3.connect('/tmp/notes.db')
         conn.row_factory = sqlite3.Row
         return conn
@@ -39,29 +35,54 @@ def init_db():
             cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS category TEXT DEFAULT ''")
             cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS pinned INTEGER DEFAULT 0")
             cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0")
-            cur.execute("UPDATE notes SET position = id WHERE position IS NULL OR position = 0")
         else:
             cur.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)')
             cur.execute("""CREATE TABLE IF NOT EXISTS notes (
                 id INTEGER PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER,
                 pinned INTEGER DEFAULT 0, color TEXT DEFAULT '#ffffff', category TEXT DEFAULT '', position INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-            for col_def in ["color TEXT DEFAULT '#ffffff'", "category TEXT DEFAULT ''", "pinned INTEGER DEFAULT 0", "position INTEGER DEFAULT 0"]:
-                try: cur.execute(f"ALTER TABLE notes ADD COLUMN {col_def}")
-                except: pass
         conn.commit()
         cur.close()
         conn.close()
-        print(f">>> DB Init SUCCESS, IS_POSTGRES={IS_POSTGRES}", file=sys.stderr)
+        return True, f"DB Init OK - POSTGRES={IS_POSTGRES}"
     except Exception as e:
-        print(f">>> DB Init FAILED: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
+        return False, str(e)
 
+# شغلها أول مرة
 init_db()
 
 @app.route('/health')
 def health():
-    return f"OK - V8 Ultimate! DB: {'POSTGRES' if IS_POSTGRES else 'SQLITE'} - Ready!", 200
+    return f"OK V9 - DB: {'POSTGRES' if IS_POSTGRES else 'SQLITE'}", 200
+
+@app.route('/init-db')
+def init_db_route():
+    ok, msg = init_db()
+    if ok:
+        return f"✅ تم إنشاء الجداول بنجاح!<br>{msg}<br><br><a href='/register'>سجل يوزر جديد الآن</a>", 200
+    else:
+        return f"❌ فشل: {msg}", 500
+
+@app.route('/debug')
+def debug():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        if IS_POSTGRES:
+            cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
+            tables = [r[0] for r in cur.fetchall()]
+            cur.execute("SELECT COUNT(*) FROM users")
+            users_count = cur.fetchone()[0]
+        else:
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [r[0] for r in cur.fetchall()]
+            users_count = 0
+        cur.close()
+        conn.close()
+        return f"DB: {'POSTGRES' if IS_POSTGRES else 'SQLITE'}<br>Tables: {tables}<br>Users: {users_count}<br><a href='/init-db'>اضغط لتهيئة الجداول</a>"
+    except Exception as e:
+        return f"Error: {e}<br><a href='/init-db'>حاول تهيئة الجداول</a>"
 
 @app.route('/sw.js')
 def sw():
@@ -72,25 +93,20 @@ def manifest_route():
 
 @app.route('/')
 def index():
-    print(">>> GET / - checking session", file=sys.stderr)
     if 'user_id' not in session:
-        print(">>> No session, redirect to /login", file=sys.stderr)
         return redirect('/login')
     try:
         conn = get_db()
         cur = conn.cursor()
         if IS_POSTGRES:
             cur.execute('SELECT id, title, content, user_id, pinned, color, category, position FROM notes WHERE user_id=%s ORDER BY pinned DESC, position DESC, id DESC', (session['user_id'],))
-            notes = cur.fetchall()
         else:
             cur.execute('SELECT id, title, content, user_id, pinned, color, category, position FROM notes WHERE user_id=? ORDER BY pinned DESC, position DESC, id DESC', (session['user_id'],))
-            notes = cur.fetchall()
+        notes = cur.fetchall()
         cur.close()
         conn.close()
-        print(f">>> GET / success, notes={len(notes)}", file=sys.stderr)
     except Exception as e:
-        print(f">>> GET / DB ERROR: {e}", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
+        print(f"Index error: {e}", file=sys.stderr)
         notes = []
     return render_template('index.html', notes=notes, username=session.get('username',''))
 
@@ -120,29 +136,6 @@ def add():
         print(f"Add error: {e}", file=sys.stderr)
     return redirect('/')
 
-@app.route('/reorder', methods=['POST'])
-def reorder():
-    if 'user_id' not in session:
-        return jsonify({'ok': False}), 401
-    data = request.get_json()
-    order = data.get('order', [])
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        total = len(order)
-        for idx, note_id in enumerate(order):
-            pos = total - idx
-            if IS_POSTGRES:
-                cur.execute('UPDATE notes SET position=%s WHERE id=%s AND user_id=%s', (pos, note_id, session['user_id']))
-            else:
-                cur.execute('UPDATE notes SET position=? WHERE id=? AND user_id=?', (pos, note_id, session['user_id']))
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"Reorder error: {e}", file=sys.stderr)
-    return jsonify({'ok': True})
-
 @app.route('/delete/<int:id>', methods=['POST'])
 def delete(id):
     try:
@@ -155,8 +148,7 @@ def delete(id):
         conn.commit()
         cur.close()
         conn.close()
-    except Exception as e:
-        print(f"Delete error: {e}", file=sys.stderr)
+    except: pass
     return redirect('/')
 
 @app.route('/edit/<int:id>', methods=['GET','POST'])
@@ -191,7 +183,6 @@ def edit(id):
         return render_template('edit.html', note=note)
     except Exception as e:
         print(f"Edit error: {e}", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
         return redirect('/')
 
 @app.route('/pin/<int:id>', methods=['POST'])
@@ -212,18 +203,37 @@ def pin(id):
         conn.commit()
         cur.close()
         conn.close()
-    except Exception as e:
-        print(f"Pin error: {e}", file=sys.stderr)
+    except: pass
     return redirect('/')
+
+@app.route('/reorder', methods=['POST'])
+def reorder():
+    if 'user_id' not in session:
+        return jsonify({'ok': False}), 401
+    try:
+        data = request.get_json()
+        order = data.get('order', [])
+        conn = get_db()
+        cur = conn.cursor()
+        total = len(order)
+        for idx, note_id in enumerate(order):
+            pos = total - idx
+            if IS_POSTGRES:
+                cur.execute('UPDATE notes SET position=%s WHERE id=%s AND user_id=%s', (pos, note_id, session['user_id']))
+            else:
+                cur.execute('UPDATE notes SET position=? WHERE id=? AND user_id=?', (pos, note_id, session['user_id']))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except: pass
+    return jsonify({'ok': True})
 
 @app.route('/register', methods=['GET','POST'])
 def register():
-    print(f">>> {request.method} /register", file=sys.stderr)
     if request.method == 'POST':
         username = request.form.get('username','').strip()
-        pwd_raw = request.form.get('password','')
         from werkzeug.security import generate_password_hash
-        password = generate_password_hash(pwd_raw)
+        password = generate_password_hash(request.form.get('password',''))
         try:
             conn = get_db()
             cur = conn.cursor()
@@ -234,17 +244,13 @@ def register():
             conn.commit()
             cur.close()
             conn.close()
-            print(f">>> User {username} registered", file=sys.stderr)
             return redirect('/login')
         except Exception as e:
-            print(f">>> Register error: {e}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            return f'الاسم موجود او خطأ: {e}'
+            return f'الاسم موجود او خطأ: {e} <br><a href="/init-db">جرب تهيئة الجداول</a> | <a href="/register">رجوع</a>'
     return render_template('register.html')
 
 @app.route('/login', methods=['GET','POST'])
 def login():
-    print(f">>> {request.method} /login", file=sys.stderr)
     if request.method == 'POST':
         username = request.form.get('username','').strip()
         pwd = request.form.get('password','')
@@ -262,15 +268,11 @@ def login():
             if user and check_password_hash(user[2], pwd):
                 session['user_id'] = user[0]
                 session['username'] = user[1]
-                print(f">>> Login success for {username}", file=sys.stderr)
                 return redirect('/')
             else:
-                print(f">>> Login failed for {username}", file=sys.stderr)
-                return 'خطأ في الدخول - تأكد من الاسم والباسورد'
+                return 'خطأ في الدخول - اليوزر مش موجود، سجل أولاً <br><a href="/register">تسجيل جديد</a>'
         except Exception as e:
-            print(f">>> Login error: {e}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            return f'خطأ: {e}'
+            return f'خطأ: {e} <br><a href="/init-db">اضغط هنا لتهيئة الجداول أولاً</a>'
     return render_template('login.html')
 
 @app.route('/logout')

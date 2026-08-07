@@ -5,7 +5,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --log-file - --log-level debug
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --log-file -
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.11
@@ -16,9 +16,6 @@ services:
           name: notes-db
           property: connectionString
     healthCheckPath: /health
-
 databases:
   - name: notes-db
     plan: free
-    databaseName: notes_db
-    user: notes_user
