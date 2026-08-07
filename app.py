@@ -3,7 +3,7 @@ import os, sys, traceback
 from flask import Flask, render_template, request, redirect, session, send_from_directory, jsonify
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'v10-final-secret-2026')
+app.secret_key = os.environ.get('SECRET_KEY', 'v11-final-2026')
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 IS_POSTGRES = DATABASE_URL and 'postgres' in DATABASE_URL.lower()
@@ -31,10 +31,6 @@ def init_db():
                 id SERIAL PRIMARY KEY, title TEXT, content TEXT, user_id INTEGER,
                 pinned INTEGER DEFAULT 0, color TEXT DEFAULT '#ffffff', category TEXT DEFAULT '', position INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-            cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#ffffff'")
-            cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS category TEXT DEFAULT ''")
-            cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS pinned INTEGER DEFAULT 0")
-            cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0")
         else:
             cur.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)')
             cur.execute("""CREATE TABLE IF NOT EXISTS notes (
@@ -53,12 +49,12 @@ init_db()
 
 @app.route('/health')
 def health():
-    return f"OK V10 - POSTGRES={IS_POSTGRES}", 200
+    return f"OK V11 - POSTGRES={IS_POSTGRES}", 200
 
 @app.route('/init-db')
 def init_db_route():
     ok, msg = init_db()
-    return f"{'✅' if ok else '❌'} {msg}<br><a href='/register'>Register</a> | <a href='/login'>Login</a> | <a href='/debug'>Debug</a>"
+    return f"{'✅' if ok else '❌'} {msg}<br><a href='/login'>Login</a>"
 
 @app.route('/debug')
 def debug():
@@ -77,9 +73,9 @@ def debug():
             users = []
         cur.close()
         conn.close()
-        return f"DB: POSTGRES={IS_POSTGRES}<br>Users: {u}<br>Notes: {n}<br>List: {users}<br><br><a href='/init-db'>Init</a> | <a href='/login'>Login</a> | <a href='/clear-notes'>Clear Notes (if crash)</a>"
+        return f"DB: POSTGRES={IS_POSTGRES}<br>Users: {u}<br>Notes: {n}<br>Users List: {users}<br><br><a href='/'>Home</a> | <a href='/clear-notes'>Clear Notes</a> | <a href='/login'>Login</a>"
     except Exception as e:
-        return f"Debug error: {e}<br><a href='/init-db'>Init DB</a>"
+        return f"Error: {e}"
 
 @app.route('/clear-notes')
 def clear_notes():
@@ -93,9 +89,9 @@ def clear_notes():
         conn.commit()
         cur.close()
         conn.close()
-        return "✅ Notes cleared for mdfoaad<br><a href='/'>Go Home</a>"
+        return "✅ Notes cleared<br><a href='/'>Go Home</a>"
     except Exception as e:
-        return f"Error clearing: {e}"
+        return f"Error: {e}"
 
 @app.route('/sw.js')
 def sw():
@@ -106,9 +102,12 @@ def manifest_route():
 
 @app.route('/')
 def index():
+    print(">>> GET / - START", file=sys.stderr, flush=True)
     try:
         if 'user_id' not in session:
+            print(">>> No session, redirect to login", file=sys.stderr)
             return redirect('/login')
+        print(f">>> Session user_id={session.get('user_id')}", file=sys.stderr)
         conn = get_db()
         cur = conn.cursor()
         if IS_POSTGRES:
@@ -118,10 +117,12 @@ def index():
         notes = cur.fetchall()
         cur.close()
         conn.close()
+        print(f">>> Notes fetched: {len(notes)}", file=sys.stderr)
         return render_template('index.html', notes=notes, username=session.get('username',''))
     except Exception as e:
+        print(f">>> ERROR in / : {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        return f"<h3>⚠️ Error in / : {e}</h3><pre>{traceback.format_exc()}</pre><br><a href='/debug'>Debug</a> | <a href='/clear-notes'>Clear Notes</a> | <a href='/logout'>Logout</a>", 500
+        return f"<h2>Error in /: {e}</h2><pre>{traceback.format_exc()}</pre><a href='/debug'>Debug</a> | <a href='/clear-notes'>Clear</a> | <a href='/logout'>Logout</a>", 500
 
 @app.route('/add', methods=['POST'])
 def add():
@@ -219,28 +220,6 @@ def pin(id):
     except: pass
     return redirect('/')
 
-@app.route('/reorder', methods=['POST'])
-def reorder():
-    if 'user_id' not in session:
-        return jsonify({'ok': False}), 401
-    try:
-        data = request.get_json()
-        order = data.get('order', [])
-        conn = get_db()
-        cur = conn.cursor()
-        total = len(order)
-        for idx, note_id in enumerate(order):
-            pos = total - idx
-            if IS_POSTGRES:
-                cur.execute('UPDATE notes SET position=%s WHERE id=%s AND user_id=%s', (pos, note_id, session['user_id']))
-            else:
-                cur.execute('UPDATE notes SET position=? WHERE id=? AND user_id=?', (pos, note_id, session['user_id']))
-        conn.commit()
-        cur.close()
-        conn.close()
-    except: pass
-    return jsonify({'ok': True})
-
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
@@ -259,7 +238,7 @@ def register():
             conn.close()
             return redirect('/login')
         except Exception as e:
-            return f'الاسم موجود: {e} <br><a href="/login">دخول</a> | <a href="/debug">Debug</a>'
+            return f'الاسم موجود: {e} <br><a href="/login">دخول</a>'
     return render_template('register.html')
 
 @app.route('/login', methods=['GET','POST'])
@@ -283,7 +262,7 @@ def login():
                 session['username'] = user[1]
                 return redirect('/')
             else:
-                return 'خطأ في الدخول - اليوزر مش موجود، سجل أولاً <br><a href="/register">تسجيل جديد</a> | <a href="/debug">Debug</a>'
+                return 'خطأ في الدخول<br><a href="/login">حاول تاني</a> | <a href="/register">سجل جديد</a>'
         except Exception as e:
             return f'خطأ: {e} <br><a href="/init-db">تهيئة</a>'
     return render_template('login.html')
